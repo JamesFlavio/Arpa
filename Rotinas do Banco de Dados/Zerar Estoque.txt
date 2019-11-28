@@ -1,0 +1,50 @@
+create or replace function fn_zeramento_saldo_grade() returns boolean as
+$$
+declare
+   oRet record;
+   iSequencia integer = 0;
+begin
+   perform get_usuario(1);
+   drop table if exists tmp_zeramento;
+   create temporary table tmp_zeramento as
+      select
+        cast(case WHEN P.quantidade < 0 then 'E' else 'S' end as varchar) as tipo
+        ,p.codigo
+        ,round(abs(P.quantidade),3) as quantidade
+        ,get_usuario(0) as usuario
+        ,cast('ZERAMENTO DE ESTOQUE PELO TECNICO' as varchar) as motivo
+        ,nextval('entrada_saida_manual_codigo_seq') as sequencia
+      from produtos P
+      where P.quantidade <> 0 and P.ativo = 0;
+
+   insert into entrada_saida_manual (tipo,cd_produto,quantidade,usuario,motivo, codigo)
+       select * from tmp_zeramento;
+   drop table if exists tmp_grade_produtos;
+   create temporary table tmp_grade_produtos(grade integer, linha integer, coluna integer, quantidade numeric);
+   
+   
+   drop table if exists tmp_saldo_grade;
+   create temp table tmp_saldo_grade as
+         select TZ.sequencia, S.grade, S.linha, S.coluna, S.quantidade * case when TZ.tipo = 'E' then 1 else -1 end as quantidade
+         from tmp_zeramento TZ
+         Join saldo_grade_linha_coluna(0) S on S.produto = TZ.codigo;
+
+   for oRet in select * from tmp_saldo_grade order by sequencia loop
+      if iSequencia <> oRet.sequencia then 
+         delete from tmp_grade_produtos;
+         insert into tmp_grade_produtos select grade, linha, coluna, quantidade from tmp_saldo_grade where sequencia = oRet.sequencia;
+         iSequencia := oRet.sequencia;
+      end if;
+      
+      insert into grade_produtos_entrada_saida_manual(cd_item, grade, linha, coluna, quantidade) values
+         (oRet.sequencia, oRet.grade, oRet.linha, oRet.coluna, oRet.quantidade);
+   end loop;
+   drop table if exists tmp_grade_produtos;
+   return true;
+exception when others then
+   raise exception 'Erro ao executar função fn_zeramento_saldo_grade %', sqlerrm;
+end;
+$$
+language plpgsql;
+
+select * from fn_zeramento_saldo_grade();
