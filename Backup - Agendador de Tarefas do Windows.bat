@@ -1,6 +1,6 @@
 @echo off
 
-REM Versão: 1.0.0.2
+REM Versão: 1.0.0.3
 @CHCP 1252 >NUL
 
 REM Muda a cor da fonte para verde
@@ -8,19 +8,17 @@ color A
 
 REM Variáveis
 
-SET DIRETORIO01="C:\Program Files (x86)\arpa\Backup"
-SET DIRETORIO02="D:\Backups\Arpa Control\Base de Dados"
-SET DIRETORIO03="\\NAS\Backups\Arpa Control\Base de Dados" 
+SET DIRETORIO01="D:\Backups\Arpa\DB"
+SET DIRETORIO02="\\NAS\Backups\Arpa\DB" 
 
 REM Cria os diretórios para backup se não existir.
 
 IF NOT EXIST %DIRETORIO01% MKDIR %DIRETORIO01%
 IF NOT EXIST %DIRETORIO02% MKDIR %DIRETORIO02%
-IF NOT EXIST %DIRETORIO03% MKDIR %DIRETORIO03%
 
 REM Altera caracteres de data e hora para caracteres permitidos para nome de arquivos.
 
-for /f "tokens=1,2,3,4 delims=/ " %%a in ('DATE /T') do set Date=%%c-%%b-%%a
+for /f "tokens=1,2,3,4 delims=/ " %%a in ('DATE /T') do set Date=%%a-%%b-%%c
 for /f "tokens=1,2,3,4 delims=: " %%a in ('time /T') do set time=%%a-%%b
 
 SET PGDIR="C:\Program Files (x86)\arpa\PostgreSQL\bin"
@@ -48,10 +46,11 @@ REM Compacta o arquivo
 REM Copia para os demais discos o backup.
 
 copy %ARQUIVO_DESTINO%.zip %DIRETORIO02%
-copy %ARQUIVO_DESTINO%.zip %DIRETORIO03%
 
 REM Deleta arquivo .Sql
 
 del /s %ARQUIVO_DESTINO%
 
+forfiles -p "%DIRETORIO01%" -d -7 -c "cmd /c del /f /q @path"
+forfiles -p "%DIRETORIO02%" -d -7 -c "cmd /c del /f /q @path"
 pause
